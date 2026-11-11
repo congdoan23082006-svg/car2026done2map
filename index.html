@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CAR CHALLENGE 2026 - TELEMETRY & TUNING</title>
+    <style>
+        :root {
+            --bg-dark: #090d16;
+            --card-bg: #121826;
+            --card-border: #1e293b;
+            --accent-cyan: #00f0ff;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-yellow: #f59e0b;
+            --text-main: #f1f5f9;
+            --text-dim: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            padding: 10px;
+            padding-bottom: 40px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 4px 12px 4px;
+            border-bottom: 1px solid var(--card-border);
+            margin-bottom: 10px;
+        }
+
+        .title-box h1 {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: var(--accent-cyan);
+            letter-spacing: 0.5px;
+        }
+
+        .btn-ble {
+            background: linear-gradient(135deg, #0284c7, #00f0ff);
+            color: #031320;
+            border: none;
+            padding: 8px 14px;
+            font-size: 0.82rem;
+            font-weight: 800;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.4);
+        }
+
+        .btn-ble.connected {
+            background: #1e293b;
+            color: var(--accent-green);
+            border: 1px solid var(--accent-green);
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+        }
+
+        /* KHỐI NÚT ĐIỀU KHIỂN CHÍNH */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .btn-main {
+            border: none;
+            padding: 12px 6px;
+            border-radius: 10px;
+            font-size: 0.88rem;
+            font-weight: 800;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            transition: transform 0.08s;
+        }
+
+        .btn-main:active {
+            transform: scale(0.96);
+        }
+
+        .btn-calib {
+            background: #1e293b;
+            color: var(--accent-yellow);
+            border: 1px solid var(--accent-yellow);
+        }
+
+        .btn-stop {
+            background: linear-gradient(135deg, #b91c1c, #ef4444);
+            color: white;
+            box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+        }
+
+        .btn-scan {
+            background: linear-gradient(135deg, #0369a1, #0284c7);
+            color: white;
+            box-shadow: 0 0 12px rgba(2, 132, 199, 0.4);
+        }
+
+        .btn-race {
+            background: linear-gradient(135deg, #047857, #10b981);
+            color: white;
+            box-shadow: 0 0 14px rgba(16, 185, 129, 0.4);
+        }
+
+        /* CARD */
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        .card-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+            font-weight: 800;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        /* 16 MẮT CẢM BIẾN */
+        .sensor-row {
+            display: grid;
+            grid-template-columns: repeat(16, 1fr);
+            gap: 2px;
+            margin: 6px 0;
+        }
+
+        .sensor-box {
+            height: 26px;
+            background: #090d16;
+            border: 1px solid #1e293b;
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.55rem;
+            font-weight: 800;
+            color: #475569;
+            transition: background 0.05s, box-shadow 0.05s;
+        }
+
+        .sensor-box.active {
+            background: var(--accent-cyan);
+            color: #000;
+            border-color: #fff;
+            box-shadow: 0 0 8px var(--accent-cyan);
+        }
+
+        /* THƯỚC NGẮM */
+        .gauge-wrapper {
+            position: relative;
+            height: 20px;
+            background: #090d16;
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 6px;
+        }
+
+        .gauge-center {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateX(-50%);
+        }
+
+        .gauge-dot {
+            position: absolute;
+            top: 2px;
+            bottom: 2px;
+            left: 50%;
+            width: 16px;
+            background: var(--accent-cyan);
+            border-radius: 8px;
+            transform: translateX(-50%);
+            box-shadow: 0 0 8px var(--accent-cyan);
+            transition: left 0.04s linear;
+        }
+
+        /* METRICS */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+            text-align: center;
+            margin-top: 8px;
+        }
+
+        .metric-cell {
+            background: #090d16;
+            border: 1px solid var(--card-border);
+            padding: 6px 2px;
+            border-radius: 6px;
+        }
+
+        .metric-label {
+            font-size: 0.62rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+        }
+
+        .metric-value {
+            font-size: 0.95rem;
+            font-weight: 800;
+            font-family: monospace;
+            color: var(--text-main);
+            margin-top: 2px;
+        }
+
+        /* INPUT / BUTTON FORM */
+        .form-row {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .form-row label {
+            width: 80px;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+        }
+
+        .form-input {
+            flex: 1;
+            background: #090d16;
+            border: 1px solid var(--card-border);
+            color: var(--text-main);
+            padding: 6px 8px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-family: monospace;
+            text-align: center;
+        }
+
+        .btn-sub {
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: var(--text-main);
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .btn-sub.primary {
+            background: #0284c7;
+            border-color: var(--accent-cyan);
+            color: white;
+        }
+
+        .btn-sub.success {
+            background: #059669;
+            border-color: #34d399;
+            color: white;
+        }
+
+        .btn-sub.danger {
+            background: #991b1b;
+            border-color: #f87171;
+            color: white;
+        }
+
+        /* TABLE */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.75rem;
+            margin-top: 6px;
+        }
+
+        th {
+            background: #090d16;
+            color: var(--text-dim);
+            padding: 5px;
+            text-align: center;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        td {
+            padding: 5px;
+            text-align: center;
+            border-bottom: 1px solid #1a2336;
+        }
+
+        .tab-bar {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 8px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            background: #090d16;
+            border: 1px solid var(--card-border);
+            color: var(--text-dim);
+            padding: 6px 2px;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .tab-btn.active {
+            background: #0284c7;
+            border-color: var(--accent-cyan);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- MODAL CALIBRATION -->
+    <div id="calibModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); z-index: 999; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center;">
+        <div style="background: #121826; border: 2px solid var(--accent-cyan); border-radius: 14px; padding: 20px; max-width: 320px; width: 100%;">
+            <div id="calibIcon" style="font-size: 2.8rem; margin-bottom: 6px;">🌀</div>
+            <h3 id="calibTitle" style="color: var(--accent-cyan); font-size: 1.1rem; margin-bottom: 6px;">ĐANG CALIB QUÉT 4S</h3>
+            <p id="calibDesc" style="color: var(--text-dim); font-size: 0.8rem; margin-bottom: 14px;">Lia đầu xe qua lại vạch đen liên tục!</p>
+            <div style="height: 10px; background: #090d16; border-radius: 5px; overflow: hidden; margin-bottom: 10px;">
+                <div id="calibProgress" style="height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent-cyan), var(--accent-green));"></div>
+            </div>
+            <div id="calibTimer" style="font-size: 1.4rem; font-weight: 800; color: var(--accent-yellow);">4.0s</div>
+            <button id="calibCloseBtn" style="display: none; margin-top: 14px; background: var(--accent-green); color: white; border: none; padding: 10px; border-radius: 8px; font-weight: 700; width: 100%; cursor: pointer;" onclick="closeCalibModal()">ĐÃ SẴN SÀNG!</button>
+        </div>
+    </div>
+
+    <header>
+        <div class="title-box">
+            <h1>RACECAR 16-SEN</h1>
+        </div>
+        <button id="btnConnect" class="btn-ble" onclick="toggleConnect()">
+            <span id="bleText">⚡ KẾT NỐI BLE</span>
+        </button>
+    </header>
+
+    <!-- KHỐI 4 NÚT ĐIỀU KHIỂN CHÍNH -->
+    <div class="grid-2">
+        <button class="btn-main btn-calib" onclick="startCalib()">
+            <span>🌀 CALIB 4S</span>
+        </button>
+        <button class="btn-main btn-stop" onclick="sendCmd('CMD:STOP')">
+            <span>🛑 DỪNG XE</span>
+        </button>
+        <button class="btn-main btn-scan" onclick="sendCmd('CMD:SCAN')">
+            <span>🐢 LƯỢT 1: QUÉT MAP</span>
+        </button>
+        <button class="btn-main btn-race" onclick="sendCmd('CMD:RACE')">
+            <span>🚀 LƯỢT 2: BUNG TỐC ĐỘ</span>
+        </button>
+    </div>
+
+    <!-- ĐỒNG HỒ BẤM GIỜ SA BÀN CHUẨN MILI-GIÂY (THEO BẢN THAM KHẢO) -->
+    <div class="card" style="text-align: center;">
+        <div class="card-title">
+            <span>⏱️ ĐỒNG HỒ BẤM GIỜ SA BÀN</span>
+            <span id="timerStatus" style="color: var(--text-dim); font-weight: 800;">⏹ ĐÃ DỪNG</span>
+        </div>
+        <div id="timerDisplay" style="font-size: 2.2rem; font-weight: 900; font-family: monospace; color: var(--accent-cyan); letter-spacing: 2px; margin: 4px 0;">00:00.000</div>
+        <div style="display: flex; justify-content: space-around; font-size: 0.72rem; color: var(--text-dim); border-top: 1px solid var(--border); padding-top: 6px; margin-top: 4px;">
+            <div>Vòng vừa rồi: <span id="lastLapDisplay" style="color: #fff; font-weight: 800;">--:--.---</span></div>
+            <div>Kỷ lục Best: <span id="bestLapDisplay" style="color: var(--accent-yellow); font-weight: 800;">--:--.---</span></div>
+            <button onclick="resetBestLap()" style="background: none; border: none; color: var(--text-dim); cursor: pointer; text-decoration: underline;">Xóa Best</button>
+        </div>
+    </div>
+
+    <!-- 16 MẮT CẢM BIẾN REAL-TIME -->
+    <div class="card">
+        <div class="card-title">
+            <span>16 MẮT CẢM BIẾN (REALTIME)</span>
+            <span id="blackCountBadge" style="color: var(--accent-green);">0/16 ĐEN</span>
+        </div>
+
+        <div class="sensor-row" id="sensorRow">
+            <!-- 16 ô mắt tạo tự động -->
+        </div>
+
+        <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--text-dim); margin-top: 4px;">
+            <span>MẮT 0 (TRÁI)</span>
+            <span id="posValue" style="color: var(--accent-cyan); font-weight: 800;">TÂM: 0.0</span>
+            <span>MẮT 15 (PHẢI)</span>
+        </div>
+
+        <div class="gauge-wrapper">
+            <div class="gauge-center"></div>
+            <div id="gaugeDot" class="gauge-dot"></div>
+        </div>
+    </div>
+
+    <!-- THÔNG SỐ XUNG & VẬN TỐC (KHÔNG BỊ RESET KHI DỪNG) -->
+    <div class="card">
+        <div class="card-title">
+            <span>THÔNG SỐ XE (ENCODER & ĐỘNG CƠ)</span>
+            <span id="carStateBadge" style="color: var(--accent-yellow);">STOPPED</span>
+        </div>
+
+        <div class="metrics-grid">
+            <div class="metric-cell">
+                <div class="metric-label">Xung Trái</div>
+                <div id="txtTicksL" class="metric-value">0</div>
+            </div>
+            <div class="metric-cell">
+                <div class="metric-label">Xung Phải</div>
+                <div id="txtTicksR" class="metric-value">0</div>
+            </div>
+            <div class="metric-cell">
+                <div class="metric-label">PWM L</div>
+                <div id="txtPwmL" class="metric-value">0</div>
+            </div>
+            <div class="metric-cell">
+                <div class="metric-label">PWM R</div>
+                <div id="txtPwmR" class="metric-value">0</div>
+            </div>
+        </div>
+
+        <div style="margin-top: 8px; display: flex; gap: 6px;">
+            <button class="btn-sub" style="flex: 1;" onclick="sendCmd('CMD:RESET_ENC')">🔄 RESET XUNG VỀ 0</button>
+            <button class="btn-sub primary" style="flex: 1;" onclick="captureCurrentTicks()">📍 CHỤP MỐC NÀY</button>
+        </div>
+    </div>
+
+    <!-- CẤU HÌNH THÔNG SỐ PID TRỰC TIẾP TRÊN WEB -->
+    <div class="card">
+        <div class="card-title">
+            <span>CHỈNH PID & TỐC ĐỘ</span>
+        </div>
+
+        <div class="form-row">
+            <label>Kp (Tỉ lệ):</label>
+            <input type="number" step="0.1" id="cfgKp" class="form-input" value="2.0">
+            <label style="margin-left: 6px;">Kd (Vi phân):</label>
+            <input type="number" step="0.5" id="cfgKd" class="form-input" value="20.0">
+        </div>
+
+        <div class="form-row">
+            <label>Ki (Tích phân):</label>
+            <input type="number" step="0.01" id="cfgKi" class="form-input" value="0.0">
+            <label style="margin-left: 6px;">Tốc độ nền:</label>
+            <input type="number" step="5" id="cfgSpeed" class="form-input" value="110">
+        </div>
+
+        <div class="form-row" style="margin-top: 6px;">
+            <label>Tốc độ rẽ 90°:</label>
+            <input type="number" step="5" min="60" max="220" id="cfgTurnSpeed" class="form-input" value="130">
+        </div>
+
+        <div class="form-row" style="margin-top: 8px;">
+            <button id="btnSendPID" class="btn-sub success" style="width: 100%; font-size: 0.85rem; padding: 10px; font-weight: 800; transition: all 0.2s;" onclick="sendPID()">📤 NẠP PID XUỐNG XE</button>
+        </div>
+    </div>
+
+    <!-- BẢNG MỐC SA BÀN (TRỐNG BAN ĐẦU - CHỈ CHỤP KHI CẦN) -->
+    <div class="card">
+        <div class="card-title">
+            <span>MỐC SA BÀN (TỰ CHỤP MỐC THẬT)</span>
+            <span id="wpTotalBadge">0 MỐC</span>
+        </div>
+
+        <div class="tab-bar">
+            <button class="tab-btn active" id="tab0" onclick="switchMap(0)">MAP 1</button>
+            <button class="tab-btn" id="tab1" onclick="switchMap(1)">MAP 2</button>
+            <button class="tab-btn" id="tab2" onclick="switchMap(2)">MAP 3</button>
+        </div>
+
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 25px;">#</th>
+                        <th>Từ Xung (Bắt đầu)</th>
+                        <th style="width: 55px;">Tốc độ</th>
+                        <th>Hành động</th>
+                        <th style="width: 25px;">Xóa</th>
+                    </tr>
+                </thead>
+                <tbody id="wpTableBody">
+                    <!-- Bắt đầu trống hoàn toàn, không có số ảo -->
+                </tbody>
+            </table>
+        </div>
+
+        <div style="display: flex; gap: 6px; margin-top: 10px;">
+            <button class="btn-sub primary" style="flex: 1;" onclick="addManualRow()">➕ THÊM MỐC</button>
+            <button class="btn-sub success" style="flex: 1;" onclick="saveMapToCar()">💾 LƯU VÀO XE</button>
+            <button class="btn-sub danger" onclick="clearAllWps()">🗑️</button>
+        </div>
+    </div>
+
+    <!-- LOG GIAO TIẾP -->
+    <div class="card">
+        <div class="card-title">NHẬT KÝ LỆNH</div>
+        <div id="logBox" style="font-size: 0.68rem; font-family: monospace; color: var(--accent-cyan); height: 60px; overflow-y: auto; white-space: pre-wrap;">> Sẵn sàng...</div>
+    </div>
+
+    <script>
+        const NUS_SERVICE = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+        const NUS_RX      = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+        const NUS_TX      = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+
+        let bleDevice = null;
+        let rxChar = null;
+        let txChar = null;
+
+        let activeMap = 0;
+        let lastLiveTicks = 0;
+
+        // Biến bấm giờ vòng đua (chuẩn từng mili-giây theo bản tham khảo)
+        let timerInterval = null;
+        let timerStartTime = 0;
+        let isTimerRunning = false;
+        let bestLapTime = parseFloat(localStorage.getItem('racecar_best_lap')) || null;
+
+        function formatTime(totalSeconds) {
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = Math.floor(totalSeconds % 60);
+            const ms = Math.floor((totalSeconds % 1) * 1000);
+            return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
+        }
+
+        function updateBestLapDisplay() {
+            const el = document.getElementById('bestLapDisplay');
+            if (el) {
+                el.innerText = bestLapTime ? formatTime(bestLapTime) : '--:--.---';
+            }
+        }
+
+        function resetBestLap() {
+            localStorage.removeItem('racecar_best_lap');
+            bestLapTime = null;
+            updateBestLapDisplay();
+            log('🗑️ Đã xóa kỷ lục Best Lap');
+        }
+
+        function startTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            timerStartTime = performance.now();
+            isTimerRunning = true;
+            const st = document.getElementById('timerStatus');
+            const dis = document.getElementById('timerDisplay');
+            if (st) {
+                st.innerText = '🏎️ ĐANG ĐUA...';
+                st.style.color = '#f59e0b';
+            }
+            if (dis) dis.style.color = 'var(--accent-cyan)';
+
+            timerInterval = setInterval(() => {
+                const elapsed = (performance.now() - timerStartTime) / 1000;
+                if (dis) dis.innerText = formatTime(elapsed);
+            }, 33); // 30 FPS siêu mượt
+        }
+
+        function stopTimer(finishSec = null) {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            isTimerRunning = false;
+            const st = document.getElementById('timerStatus');
+            const dis = document.getElementById('timerDisplay');
+            const lastLap = document.getElementById('lastLapDisplay');
+
+            if (finishSec !== null && !isNaN(finishSec)) {
+                if (dis) {
+                    dis.innerText = formatTime(finishSec);
+                    dis.style.color = '#22c55e';
+                }
+                if (st) {
+                    st.innerText = `🏁 VỀ ĐÍCH (${finishSec.toFixed(3)}s)`;
+                    st.style.color = '#22c55e';
+                }
+                if (lastLap) lastLap.innerText = formatTime(finishSec);
+
+                if (!bestLapTime || finishSec < bestLapTime) {
+                    bestLapTime = finishSec;
+                    localStorage.setItem('racecar_best_lap', finishSec);
+                    updateBestLapDisplay();
+                    log(`🎉 KỶ LỤC MỚI: ${finishSec.toFixed(3)}s!`);
+                }
+            } else {
+                if (st) {
+                    st.innerText = '⏹ ĐÃ DỪNG';
+                    st.style.color = 'var(--text-dim)';
+                }
+            }
+        }
+
+        // BẮT ĐẦU VỚI LOCAL STORAGE - TỰ LƯU VĨNH VIỄN TRÊN ĐIỆN THOẠI
+        let userMaps = [[], [], []];
+        try {
+            const saved = localStorage.getItem('racecar_user_maps_v2');
+            if (saved) {
+                userMaps = JSON.parse(saved);
+            }
+        } catch (e) {
+            console.error('Lỗi đọc localStorage:', e);
+        }
+
+        function saveLocalMaps() {
+            try {
+                localStorage.setItem('racecar_user_maps_v2', JSON.stringify(userMaps));
+            } catch (e) {
+                console.error('Lỗi ghi localStorage:', e);
+            }
+        }
+
+        // Khởi tạo 16 ô cảm biến
+        const row = document.getElementById('sensorRow');
+        for (let i = 0; i < 16; i++) {
+            const b = document.createElement('div');
+            b.id = `sen_${i}`;
+            b.className = 'sensor-box';
+            b.innerText = i;
+            row.appendChild(b);
+        }
+
+        function log(m) {
+            const lb = document.getElementById('logBox');
+            lb.innerHTML = `> ${m}\n` + lb.innerHTML;
+        }
+
+        // ================= BLE CONNECT =================
+        async function toggleConnect() {
+            if (bleDevice && bleDevice.gatt.connected) {
+                bleDevice.gatt.disconnect();
+                return;
+            }
+
+            try {
+                log('Đang tìm RACECAR_16SEN...');
+                bleDevice = await navigator.bluetooth.requestDevice({
+                    filters: [{ namePrefix: 'RACECAR' }],
+                    optionalServices: [NUS_SERVICE]
+                });
+
+                bleDevice.addEventListener('gattserverdisconnected', () => {
+                    document.getElementById('btnConnect').classList.remove('connected');
+                    document.getElementById('bleText').innerText = '⚡ KẾT NỐI BLE';
+                    log('⚠️ Đã ngắt kết nối!');
+                });
+
+                const server = await bleDevice.gatt.connect();
+                const service = await server.getPrimaryService(NUS_SERVICE);
+                rxChar = await service.getCharacteristic(NUS_RX);
+                txChar = await service.getCharacteristic(NUS_TX);
+
+                await txChar.startNotifications();
+                txChar.addEventListener('characteristicvaluechanged', onTelemetry);
+
+                document.getElementById('btnConnect').classList.add('connected');
+                document.getElementById('bleText').innerText = '✅ ĐÃ KẾT NỐI';
+                log('✅ Kết nối thành công!');
+            } catch (e) {
+                log('❌ Lỗi BLE: ' + e);
+            }
+        }
+
+        async function sendCmd(cmd) {
+            if (!rxChar) {
+                log('⚠️ Chưa kết nối BLE!');
+                return;
+            }
+            try {
+                const enc = new TextEncoder();
+                await rxChar.writeValueWithoutResponse(enc.encode(cmd));
+                log('📤 ' + cmd);
+            } catch (e) {
+                log('❌ Lỗi gửi: ' + e);
+            }
+        }
+
+        // ================= TELEMETRY RECEIVE =================
+        function onTelemetry(event) {
+            const dec = new TextDecoder();
+            const raw = dec.decode(event.target.value).trim();
+
+            if (raw.startsWith('T:')) {
+                // T:tl,tr,pos*10,pwm_l,pwm_r,map,wp,state,mask
+                const p = raw.substring(2).split(',');
+                if (p.length >= 8) {
+                    const tl = parseInt(p[0]) || 0;
+                    const tr = parseInt(p[1]) || 0;
+                    const pos = (parseFloat(p[2]) || 0) / 10.0;
+                    const ml = parseInt(p[3]) || 0;
+                    const mr = parseInt(p[4]) || 0;
+                    const state = parseInt(p[7]) || 0;
+                    const mask = p.length >= 9 ? (parseInt(p[8]) || 0) : 0;
+
+                    lastLiveTicks = Math.round((Math.abs(tl) + Math.abs(tr)) / 2);
+
+                    const elTl = document.getElementById('txtTicksL');
+                    const elTr = document.getElementById('txtTicksR');
+                    const elMl = document.getElementById('txtPwmL');
+                    const elMr = document.getElementById('txtPwmR');
+                    const elPos = document.getElementById('posValue');
+
+                    if (elTl) elTl.innerText = tl;
+                    if (elTr) elTr.innerText = tr;
+                    if (elMl) elMl.innerText = ml;
+                    if (elMr) elMr.innerText = mr;
+                    if (elPos) elPos.innerText = `TÂM: ${pos.toFixed(1)}`;
+
+                    // Cập nhật trạng thái
+                    let st = 'STOPPED';
+                    if (state === 1) st = '🐢 QUÉT MAP...';
+                    else if (state === 2) st = '🚀 ĐUA BUNG GA!';
+                    else if (state === 3) st = '🎯 ĐANG CĂN TÂM...';
+                    const elSt = document.getElementById('carStateBadge');
+                    if (elSt) elSt.innerText = st;
+
+                    // Thước ngắm
+                    const pct = Math.min(Math.max(((pos + 75.0) / 150.0) * 100, 4), 96);
+                    const elGauge = document.getElementById('gaugeDot');
+                    if (elGauge) elGauge.style.left = `${pct}%`;
+
+                    // 16 MẮT REAL-TIME
+                    let blk = 0;
+                    for (let i = 0; i < 16; i++) {
+                        const on = (mask & (1 << i)) !== 0;
+                        const el = document.getElementById(`sen_${i}`);
+                        if (el) {
+                            if (on) {
+                                el.classList.add('active');
+                                el.innerText = '#';
+                            } else {
+                                el.classList.remove('active');
+                                el.innerText = i;
+                            }
+                        }
+                        if (on) blk++;
+                    }
+                    const elBlk = document.getElementById('blackCountBadge');
+                    if (elBlk) elBlk.innerText = `${blk}/16 ĐEN`;
+                }
+            } else if (raw.startsWith('LOG:RACE_FINISH:')) {
+                const finishSec = parseFloat(raw.substring(16));
+                stopTimer(finishSec);
+                log('🏁 Xe về đích! Thời gian: ' + finishSec.toFixed(3) + 's');
+            } else if (raw === 'LOG:AUTO_START') {
+                if (!isTimerRunning) startTimer();
+                log('🚀 Xe bắt đầu chạy!');
+            } else if (raw.startsWith('ACK:')) {
+                log('📥 ' + raw);
+                if (raw === 'ACK:CALIB_DONE') {
+                    finishCalibUI();
+                } else if (raw === 'ACK:PID_UPDATED') {
+                    onPIDUpdatedFeedback();
+                } else if (raw === 'ACK:SCAN_FINISHED') {
+                    stopTimer();
+                    log('🎉 Xe đã chạm đích quét sa bàn! Dừng tại: ' + lastLiveTicks + ' xung');
+                    alert('🎉 [XONG LƯỢT 1] Xe đã quét xong sa bàn!\nTổng xung: ' + lastLiveTicks + ' ticks.');
+                } else if (raw === 'ACK:FINISH_STOPPED') {
+                    stopTimer();
+                    log('🏁 Xe đã hoàn thành bài thi đua! Dừng tại: ' + lastLiveTicks + ' xung');
+                } else if (raw === 'ACK:STOPPED') {
+                    stopTimer();
+                }
+            } else {
+                log('📥 ' + raw);
+            }
+        }
+
+        // ================= CALIBRATION UI =================
+        let calibInt = null;
+
+        function startCalib() {
+            sendCmd('CMD:CALIB');
+            const m = document.getElementById('calibModal');
+            const p = document.getElementById('calibProgress');
+            const t = document.getElementById('calibTimer');
+            const c = document.getElementById('calibCloseBtn');
+            m.style.display = 'flex';
+            c.style.display = 'none';
+            p.style.width = '0%';
+            t.innerText = '4.0s';
+
+            let cur = 0;
+            clearInterval(calibInt);
+            calibInt = setInterval(() => {
+                cur += 100;
+                const rem = Math.max((4000 - cur) / 1000, 0);
+                t.innerText = rem.toFixed(1) + 's';
+                p.style.width = ((cur / 4000) * 100) + '%';
+                if (cur >= 4000) {
+                    clearInterval(calibInt);
+                }
+            }, 100);
+        }
+
+        function finishCalibUI() {
+            clearInterval(calibInt);
+            document.getElementById('calibProgress').style.width = '100%';
+            document.getElementById('calibTimer').innerText = 'XONG!';
+            document.getElementById('calibIcon').innerText = '✅';
+            document.getElementById('calibTitle').innerText = 'CALIB THÀNH CÔNG!';
+            document.getElementById('calibDesc').innerText = '16 mắt đã lưu ngưỡng. Giờ bạn có thể thấy mắt sáng đèn real-time!';
+            document.getElementById('calibCloseBtn').style.display = 'block';
+        }
+
+        function closeCalibModal() {
+            document.getElementById('calibModal').style.display = 'none';
+        }
+
+        // ================= PID CONFIG =================
+        async function sendPID() {
+            const btn = document.getElementById('btnSendPID');
+            if (!rxChar) {
+                log('⚠️ Chưa kết nối BLE!');
+                if (btn) {
+                    btn.style.background = '#eab308';
+                    btn.style.borderColor = '#ca8a04';
+                    btn.innerText = '⚠️ CHƯA KẾT NỐI BLE!';
+                    setTimeout(() => {
+                        btn.style.background = '';
+                        btn.style.borderColor = '';
+                        btn.innerText = '📤 NẠP PID XUỐNG XE';
+                    }, 1400);
+                }
+                return;
+            }
+
+            const kp = document.getElementById('cfgKp').value;
+            const ki = document.getElementById('cfgKi').value;
+            const kd = document.getElementById('cfgKd').value;
+            const spd = document.getElementById('cfgSpeed').value;
+            const turn = document.getElementById('cfgTurnSpeed').value;
+
+            if (btn) {
+                btn.style.background = '#0284c7';
+                btn.style.borderColor = '#38bdf8';
+                btn.style.transform = 'scale(0.97)';
+                btn.innerText = '⏳ ĐANG GỬI XUỐNG XE...';
+            }
+
+            await sendCmd(`CMD:PID:${kp}:${ki}:${kd}:${spd}:${turn}`);
+            await sendCmd(`CMD:SCAN_SPD:${spd}`);
+
+            // Tự kích hoạt phản hồi thành công sau 200ms dự phòng
+            setTimeout(() => {
+                if (btn && btn.innerText.includes('ĐANG GỬI')) {
+                    onPIDUpdatedFeedback();
+                }
+            }, 200);
+        }
+
+        function onPIDUpdatedFeedback() {
+            const btn = document.getElementById('btnSendPID');
+            if (btn) {
+                btn.style.background = '#10b981';
+                btn.style.borderColor = '#34d399';
+                btn.style.boxShadow = '0 0 16px rgba(16, 185, 129, 0.8)';
+                btn.style.transform = 'scale(1.02)';
+                btn.innerText = '✅ ĐÃ NẠP THÀNH CÔNG!';
+                setTimeout(() => {
+                    btn.style.background = '';
+                    btn.style.borderColor = '';
+                    btn.style.boxShadow = '';
+                    btn.style.transform = '';
+                    btn.innerText = '📤 NẠP PID XUỐNG XE';
+                }, 1500);
+            }
+        }
+
+        // ================= WAYPOINT TABLE (CHỤP THẬT) =================
+        function switchMap(idx) {
+            activeMap = idx;
+            document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', i === idx));
+            renderWpTable();
+            sendCmd(`CMD:MAP:${idx}`);
+        }
+
+        function renderWpTable() {
+            const tb = document.getElementById('wpTableBody');
+            tb.innerHTML = '';
+            const list = userMaps[activeMap];
+            document.getElementById('wpTotalBadge').innerText = `${list.length} MỐC`;
+
+            list.forEach((w, i) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="font-weight: 800;">${i}</td>
+                    <td><input type="number" class="form-input" style="padding: 2px;" value="${w.ticks}" onchange="editWp(${i}, 'ticks', this.value)"></td>
+                    <td><input type="number" class="form-input" style="padding: 2px;" value="${w.speed}" onchange="editWp(${i}, 'speed', this.value)"></td>
+                    <td>
+                        <select class="form-input" style="padding: 2px; font-size: 0.72rem;" onchange="editWp(${i}, 'action', this.value)">
+                            <option value="0" ${w.action === 0 ? 'selected' : ''}>PID chuẩn</option>
+                            <option value="1" ${w.action === 1 ? 'selected' : ''}>Ép Trái (Lượn Sóng)</option>
+                            <option value="2" ${w.action === 2 ? 'selected' : ''}>Ép Phải (Lượn Sóng)</option>
+                            <option value="3" ${w.action === 3 ? 'selected' : ''}>Khóa Thẳng</option>
+                            <option value="4" ${w.action === 4 ? 'selected' : ''}>Phanh Đích</option>
+                        </select>
+                    </td>
+                    <td><button style="background:none; border:none; color:var(--accent-red); cursor:pointer; font-weight:800;" onclick="delWp(${i})">✖</button></td>
+                `;
+                tb.appendChild(tr);
+            });
+        }
+
+        function captureCurrentTicks() {
+            const ticks = (lastLiveTicks !== undefined && lastLiveTicks !== null) ? lastLiveTicks : 0;
+            userMaps[activeMap].push({ ticks: ticks, speed: 120, action: 0 });
+            userMaps[activeMap].sort((a, b) => a.ticks - b.ticks);
+            saveLocalMaps();
+            renderWpTable();
+            log(`📍 Đã chụp mốc bắt đầu: ${ticks} xung`);
+        }
+
+        function addManualRow() {
+            const list = userMaps[activeMap];
+            const nextTicks = list.length > 0 ? list[list.length - 1].ticks + 1000 : 1000;
+            list.push({ ticks: nextTicks, speed: 120, action: 0 });
+            saveLocalMaps();
+            renderWpTable();
+        }
+
+        function editWp(idx, f, v) {
+            userMaps[activeMap][idx][f] = parseInt(v);
+            saveLocalMaps();
+        }
+
+        function delWp(idx) {
+            userMaps[activeMap].splice(idx, 1);
+            saveLocalMaps();
+            renderWpTable();
+        }
+
+        function clearAllWps() {
+            userMaps[activeMap] = [];
+            saveLocalMaps();
+            renderWpTable();
+            sendCmd(`CMD:WP_CLEAR:${activeMap}`);
+            log('🗑️ Đã xóa sạch mốc Map ' + (activeMap + 1));
+        }
+
+        async function saveMapToCar() {
+            userMaps[activeMap].sort((a, b) => a.ticks - b.ticks);
+            saveLocalMaps();
+            renderWpTable();
+            const list = userMaps[activeMap];
+            log(`Đang lưu ${list.length} mốc Map ${activeMap + 1} vào xe...`);
+            await sendCmd(`CMD:WP_CLEAR:${activeMap}`);
+
+            for (let i = 0; i < list.length; i++) {
+                const w = list[i];
+                await new Promise(r => setTimeout(r, 40));
+                await sendCmd(`CMD:WP_SET:${activeMap}:${i}:${w.ticks}:${w.speed}:${w.action}`);
+            }
+            await sendCmd('CMD:SAVE');
+            log(`✅ Đã lưu vĩnh viễn Map ${activeMap + 1} vào Flash NVS!`);
+        }
+
+        renderWpTable();
+        updateBestLapDisplay();
+    </script>
+</body>
+</html>
