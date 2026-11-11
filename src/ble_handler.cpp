@@ -17,6 +17,7 @@
 
 static BLEServer *pServer = NULL;
 static BLECharacteristic *pTxCharacteristic = NULL;
+static SemaphoreHandle_t s_ble_tx_mutex = NULL; // Khóa Mutex chống xung đột đa luồng BLE
 static bool deviceConnected = false;
 static bool oldDeviceConnected = false;
 static CarRunMode_t s_car_mode = CAR_MODE_STOP;
@@ -52,11 +53,13 @@ int16_t car_get_scan_speed(void) {
 
 // Callbacks xử lý kết nối BLE
 class ServerCallbacks : public BLEServerCallbacks {
-    void onConnect(BLEServer* pServer) {
+    void onConnect(BLEServer* pServer, esp_ble_gatts_cb_param_t *param) override {
         deviceConnected = true;
-        Serial.println("\n>> 🔵 [BLE] ĐÃ KẾT NỐI VỚI WEB!");
+        // Kích hoạt ngay chế độ độ trễ siêu thấp (Low Latency: 7.5ms - 15ms)
+        pServer->updateConnParams(param->connect.remote_bda, 6, 12, 0, 100);
+        Serial.println("\n>> 🔵 [BLE] ĐÃ KẾT NỐI VỚI WEB (Đã kích hoạt Low-Latency 7.5ms)!");
     }
-    void onDisconnect(BLEServer* pServer) {
+    void onDisconnect(BLEServer* pServer) override {
         deviceConnected = false;
         Serial.println("\n>> 🔴 [BLE] ĐÃ NGẮT KẾT NỐI KHỎI WEB!");
         // Bật lại quảng bá để Web có thể quét kết nối lại bất cứ lúc nào
@@ -103,6 +106,8 @@ class RxCallbacks : public BLECharacteristicCallbacks {
         }
         else if (rxValue.startsWith("CMD:PID:")) {
             // Cú pháp: CMD:PID:<kp>:<ki>:<kd>:<spd>[:<turn>]
+            // Tự động chuẩn hóa dấu phẩy thành dấu chấm tránh lỗi bàn phím tiếng Việt
+            rxValue.replace(',', '.');
             int p1 = rxValue.indexOf(':', 8);
             int p2 = rxValue.indexOf(':', p1 + 1);
             int p3 = rxValue.indexOf(':', p2 + 1);
@@ -183,6 +188,9 @@ class RxCallbacks : public BLECharacteristicCallbacks {
 };
 
 void ble_init(const char *device_name) {
+    if (!s_ble_tx_mutex) {
+        s_ble_tx_mutex = xSemaphoreCreateMutex();
+    }
     BLEDevice::init(device_name);
     BLEDevice::setMTU(256);
 
@@ -222,9 +230,11 @@ bool ble_is_connected(void) {
 
 void ble_send_string(const char *str) {
     if (deviceConnected && pTxCharacteristic) {
-        pTxCharacteristic->setValue((uint8_t*)str, strlen(str));
-        pTxCharacteristic->notify();
-        delay(5);
+        if (s_ble_tx_mutex && xSemaphoreTake(s_ble_tx_mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+            pTxCharacteristic->setValue((uint8_t*)str, strlen(str));
+            pTxCharacteristic->notify();
+            xSemaphoreGive(s_ble_tx_mutex);
+        }
     }
     Serial.printf(">> 📤 [BLE PHẢN HỒI]: %s\n", str);
 }
@@ -243,9 +253,11 @@ void ble_send_telemetry(int32_t ticks_l, int32_t ticks_r, float line_pos,
              (long)ticks_l, (long)ticks_r, pos_scaled,
              pwm_l, pwm_r, map_idx, wp_idx, car_state, (unsigned int)sensor_mask);
 
-    pTxCharacteristic->setValue((uint8_t*)buf, strlen(buf));
-    pTxCharacteristic->notify();
-    delay(5);
+    if (s_ble_tx_mutex && xSemaphoreTake(s_ble_tx_mutex, pdMS_TO_TICKS(20)) == pdTRUE) {
+        pTxCharacteristic->setValue((uint8_t*)buf, strlen(buf));
+        pTxCharacteristic->notify();
+        xSemaphoreGive(s_ble_tx_mutex);
+    }
 
     // In Serial mỗi 500ms để kiểm tra tận mắt dữ liệu gửi lên Web
     static uint32_t s_last_dbg = 0;

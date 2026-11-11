@@ -263,7 +263,7 @@ void bleTask(void *pvParameters) {
             }
         }
 
-        vTaskDelay(pdMS_TO_TICKS(150)); // 150ms/lần (~7Hz) cực kỳ thông thoáng và không nghẽn BLE
+        vTaskDelay(pdMS_TO_TICKS(40)); // 40ms/lần (25Hz) - Phản hồi siêu mượt, tức thời và không lag
     }
 }
 

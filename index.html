@@ -482,8 +482,8 @@
 
         <div class="tab-bar">
             <button class="tab-btn active" id="tab0" onclick="switchMap(0)">MAP 1 (HÌNH THOI)</button>
-            <button class="tab-btn" id="tab1" onclick="switchMap(1)">MAP 2 (LÀN TRÁI)</button>
-            <button class="tab-btn" id="tab2" onclick="switchMap(2)">MAP 3 (LÀN PHẢI)</button>
+            <button class="tab-btn" id="tab1" onclick="switchMap(1)">MAP 2 (PHẢI - DIODE)</button>
+            <button class="tab-btn" id="tab2" onclick="switchMap(2)">MAP 3 (TRÁI - DIODE)</button>
         </div>
 
         <div style="overflow-x: auto;">
@@ -616,13 +616,35 @@
             { ticks: 2324, speed: 110, action: 2 },
             { ticks: 3324, speed: 110, action: 0 }
         ];
-        const defaultMap2 = JSON.parse(JSON.stringify(defaultMap1));
+        const defaultMap2 = [
+            { ticks: 0,     speed: 80,  action: 0 },
+            { ticks: 420,   speed: 80,  action: 2 },
+            { ticks: 1745,  speed: 110, action: 0 },
+            { ticks: 5631,  speed: 70,  action: 1 },
+            { ticks: 5807,  speed: 80,  action: 0 },
+            { ticks: 6300,  speed: 110, action: 2 },
+            { ticks: 6471,  speed: 110, action: 2 },
+            { ticks: 6564,  speed: 110, action: 2 },
+            { ticks: 6600,  speed: 110, action: 2 },
+            { ticks: 6707,  speed: 110, action: 2 },
+            { ticks: 7000,  speed: 120, action: 0 },
+            { ticks: 7852,  speed: 140, action: 0 },
+            { ticks: 11000, speed: 200, action: 0 }
+        ];
         const defaultMap3 = [
-            { ticks: 0,    speed: 120, action: 0 },
-            { ticks: 400,  speed: 110, action: 2 },
-            { ticks: 500,  speed: 110, action: 0 },
-            { ticks: 2324, speed: 110, action: 1 },
-            { ticks: 3324, speed: 110, action: 0 }
+            { ticks: 0,     speed: 80,  action: 0 },
+            { ticks: 420,   speed: 80,  action: 1 }, // Ép Trái
+            { ticks: 1745,  speed: 110, action: 0 },
+            { ticks: 5631,  speed: 70,  action: 2 }, // Ép Phải
+            { ticks: 5807,  speed: 80,  action: 0 },
+            { ticks: 6300,  speed: 110, action: 1 }, // Ép Trái
+            { ticks: 6471,  speed: 110, action: 1 }, // Ép Trái
+            { ticks: 6564,  speed: 110, action: 1 }, // Ép Trái
+            { ticks: 6600,  speed: 110, action: 1 }, // Ép Trái
+            { ticks: 6707,  speed: 110, action: 1 }, // Ép Trái
+            { ticks: 7000,  speed: 120, action: 0 },
+            { ticks: 7852,  speed: 140, action: 0 },
+            { ticks: 11000, speed: 200, action: 0 }
         ];
 
         let userMaps = [defaultMap1, defaultMap2, defaultMap3];
@@ -632,14 +654,17 @@
                 const parsed = JSON.parse(saved);
                 if (Array.isArray(parsed) && parsed.length >= 3) {
                     if (!parsed[0] || parsed[0].length === 0) parsed[0] = defaultMap1;
-                    if (!parsed[1] || parsed[1].length === 0) parsed[1] = defaultMap2;
-                    if (!parsed[2] || parsed[2].length === 0) parsed[2] = defaultMap3;
+                    parsed[1] = defaultMap2; // Cập nhật đúng 13 mốc thực tế cho Map 2 (Phải - Diode)
+                    parsed[2] = defaultMap3; // Cập nhật đúng 13 mốc thực tế cho Map 3 (Trái - Diode)
                     userMaps = parsed;
                 }
             }
         } catch (e) {
             console.error('Lỗi đọc localStorage:', e);
         }
+        userMaps[1] = defaultMap2;
+        userMaps[2] = defaultMap3;
+        saveLocalMaps();
 
         function saveLocalMaps() {
             try {
@@ -720,6 +745,30 @@
         }
 
         // ================= TELEMETRY RECEIVE =================
+        let lastMask = -1;
+        let lastState = -1;
+        let domCache = null;
+
+        function getDomCache() {
+            if (!domCache) {
+                domCache = {
+                    tl: document.getElementById('txtTicksL'),
+                    tr: document.getElementById('txtTicksR'),
+                    ml: document.getElementById('txtPwmL'),
+                    mr: document.getElementById('txtPwmR'),
+                    pos: document.getElementById('posValue'),
+                    st: document.getElementById('carStateBadge'),
+                    gauge: document.getElementById('gaugeDot'),
+                    blk: document.getElementById('blackCountBadge'),
+                    sens: []
+                };
+                for (let i = 0; i < 16; i++) {
+                    domCache.sens.push(document.getElementById(`sen_${i}`));
+                }
+            }
+            return domCache;
+        }
+
         function onTelemetry(event) {
             const dec = new TextDecoder();
             const raw = dec.decode(event.target.value).trim();
@@ -736,51 +785,50 @@
                     const state = parseInt(p[7]) || 0;
                     const mask = p.length >= 9 ? (parseInt(p[8]) || 0) : 0;
 
+                    const dom = getDomCache();
                     lastLiveTicks = Math.round((Math.abs(tl) + Math.abs(tr)) / 2);
 
-                    const elTl = document.getElementById('txtTicksL');
-                    const elTr = document.getElementById('txtTicksR');
-                    const elMl = document.getElementById('txtPwmL');
-                    const elMr = document.getElementById('txtPwmR');
-                    const elPos = document.getElementById('posValue');
+                    if (dom.tl) dom.tl.innerText = tl;
+                    if (dom.tr) dom.tr.innerText = tr;
+                    if (dom.ml) dom.ml.innerText = ml;
+                    if (dom.mr) dom.mr.innerText = mr;
+                    if (dom.pos) dom.pos.innerText = `TÂM: ${pos.toFixed(1)}`;
 
-                    if (elTl) elTl.innerText = tl;
-                    if (elTr) elTr.innerText = tr;
-                    if (elMl) elMl.innerText = ml;
-                    if (elMr) elMr.innerText = mr;
-                    if (elPos) elPos.innerText = `TÂM: ${pos.toFixed(1)}`;
-
-                    // Cập nhật trạng thái
-                    let st = 'STOPPED';
-                    if (state === 1) st = '🐢 QUÉT MAP...';
-                    else if (state === 2) st = '🚀 ĐUA BUNG GA!';
-                    else if (state === 3) st = '🎯 ĐANG CĂN TÂM...';
-                    const elSt = document.getElementById('carStateBadge');
-                    if (elSt) elSt.innerText = st;
+                    // Cập nhật trạng thái chỉ khi đổi state
+                    if (state !== lastState) {
+                        lastState = state;
+                        let stText = 'STOPPED';
+                        if (state === 1) stText = '🐢 QUÉT MAP...';
+                        else if (state === 2) stText = '🚀 ĐUA BUNG GA!';
+                        else if (state === 3) stText = '🎯 ĐANG CĂN TÂM...';
+                        if (dom.st) dom.st.innerText = stText;
+                    }
 
                     // Thước ngắm
                     const pct = Math.min(Math.max(((pos + 75.0) / 150.0) * 100, 4), 96);
-                    const elGauge = document.getElementById('gaugeDot');
-                    if (elGauge) elGauge.style.left = `${pct}%`;
+                    if (dom.gauge) dom.gauge.style.left = `${pct}%`;
 
-                    // 16 MẮT REAL-TIME
-                    let blk = 0;
-                    for (let i = 0; i < 16; i++) {
-                        const on = (mask & (1 << i)) !== 0;
-                        const el = document.getElementById(`sen_${i}`);
-                        if (el) {
-                            if (on) {
-                                el.classList.add('active');
-                                el.innerText = '#';
-                            } else {
-                                el.classList.remove('active');
-                                el.innerText = i;
+                    // 16 MẮT REAL-TIME (Chỉ cập nhật mắt bị đổi trạng thái -> Nhanh gấp 10 lần, không lag UI)
+                    if (mask !== lastMask) {
+                        let blk = 0;
+                        for (let i = 0; i < 16; i++) {
+                            const on = (mask & (1 << i)) !== 0;
+                            const prevOn = (lastMask & (1 << i)) !== 0;
+                            const el = dom.sens[i];
+                            if (el && (on !== prevOn || lastMask === -1)) {
+                                if (on) {
+                                    el.classList.add('active');
+                                    el.innerText = '#';
+                                } else {
+                                    el.classList.remove('active');
+                                    el.innerText = i;
+                                }
                             }
+                            if (on) blk++;
                         }
-                        if (on) blk++;
+                        lastMask = mask;
+                        if (dom.blk) dom.blk.innerText = `${blk}/16 ĐEN`;
                     }
-                    const elBlk = document.getElementById('blackCountBadge');
-                    if (elBlk) elBlk.innerText = `${blk}/16 ĐEN`;
                 }
             } else if (raw.startsWith('LOG:RACE_FINISH:')) {
                 const finishSec = parseFloat(raw.substring(16));
@@ -889,6 +937,8 @@
         }
 
         // ================= PID CONFIG =================
+        let pidAckTimer = null;
+
         async function sendPID() {
             const btn = document.getElementById('btnSendPID');
             if (!rxChar) {
@@ -906,9 +956,10 @@
                 return;
             }
 
-            const kp = document.getElementById('cfgKp').value;
-            const ki = document.getElementById('cfgKi').value;
-            const kd = document.getElementById('cfgKd').value;
+            // Tự động đổi dấu phẩy thành dấu chấm tránh lỗi bàn phím tiếng Việt
+            const kp = document.getElementById('cfgKp').value.replace(',', '.');
+            const ki = document.getElementById('cfgKi').value.replace(',', '.');
+            const kd = document.getElementById('cfgKd').value.replace(',', '.');
             const spd = document.getElementById('cfgSpeed').value;
             const turn = document.getElementById('cfgTurnSpeed').value;
 
@@ -919,18 +970,27 @@
                 btn.innerText = '⏳ ĐANG GỬI XUỐNG XE...';
             }
 
+            // Gửi duy nhất 1 gói chuẩn (ESP32 tự cập nhật cả baseSpeed lẫn scanSpeed)
             await sendCmd(`CMD:PID:${kp}:${ki}:${kd}:${spd}:${turn}`);
-            await sendCmd(`CMD:SCAN_SPD:${spd}`);
 
-            // Tự kích hoạt phản hồi thành công sau 200ms dự phòng
-            setTimeout(() => {
+            // Chờ phản hồi ACK:PID_UPDATED THẬT từ xe (tối đa 1200ms)
+            clearTimeout(pidAckTimer);
+            pidAckTimer = setTimeout(() => {
                 if (btn && btn.innerText.includes('ĐANG GỬI')) {
-                    onPIDUpdatedFeedback();
+                    btn.style.background = '#ef4444';
+                    btn.style.borderColor = '#dc2626';
+                    btn.innerText = '⚠️ XE CHƯA NHẬN, BẤM LẠI!';
+                    setTimeout(() => {
+                        btn.style.background = '';
+                        btn.style.borderColor = '';
+                        btn.innerText = '📤 NẠP PID XUỐNG XE';
+                    }, 1800);
                 }
-            }, 200);
+            }, 1200);
         }
 
         function onPIDUpdatedFeedback() {
+            clearTimeout(pidAckTimer);
             const btn = document.getElementById('btnSendPID');
             if (btn) {
                 btn.style.background = '#10b981';
@@ -944,7 +1004,7 @@
                     btn.style.boxShadow = '';
                     btn.style.transform = '';
                     btn.innerText = '📤 NẠP PID XUỐNG XE';
-                }, 1500);
+                }, 1400);
             }
         }
 
@@ -954,8 +1014,7 @@
             document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', i === idx));
             renderWpTable();
             sendCmd(`CMD:MAP:${idx}`);
-            if (idx === 1) sendCmd('CMD:LANE:0');
-            if (idx === 2) sendCmd('CMD:LANE:1');
+            sendCmd('CMD:LANE:0');
             sendCmd(`CMD:GET_MAP:${idx}`);
         }
 
@@ -1037,8 +1096,8 @@
 
         function getMapTitle(idx) {
             if (idx === 0) return 'Map 1 (Hình Thoi)';
-            if (idx === 1) return 'Map 2 (Làn Trái)';
-            if (idx === 2) return 'Map 3 (Làn Phải)';
+            if (idx === 1) return 'Map 2 (Phải - Diode)';
+            if (idx === 2) return 'Map 3 (Trái - Diode)';
             return 'Map ' + (idx + 1);
         }
 
@@ -1060,10 +1119,10 @@
 
             for (let i = 0; i < list.length; i++) {
                 const w = list[i];
-                await new Promise(r => setTimeout(r, 45));
+                await new Promise(r => setTimeout(r, 20));
                 await sendCmd(`CMD:WP_SET:${activeMap}:${i}:${w.ticks}:${w.speed}:${w.action}`);
             }
-            await new Promise(r => setTimeout(r, 50));
+            await new Promise(r => setTimeout(r, 30));
             await sendCmd('CMD:SAVE');
             log(`✅ Đã lưu vĩnh viễn ${getMapTitle(activeMap)} (${list.length} mốc) vào Flash NVS!`);
             alert(`✅ Đã nạp thành công ${list.length} mốc [${getMapTitle(activeMap)}] vào xe! Giờ bạn có thể đặt xe lên vạch và bấm LƯỢT 2.`);

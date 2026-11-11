@@ -24,21 +24,37 @@ void map_load_defaults(void) {
     s_maps[0].wps[3] = { .start_ticks = 2324, .target_speed = 110, .action = ACTION_FORCE_RIGHT };
     s_maps[0].wps[4] = { .start_ticks = 3324, .target_speed = 110, .action = ACTION_NORMAL };
 
-    // 2. MAP 2 (LÀN TRÁI)
-    s_maps[1].count = 5;
-    s_maps[1].wps[0] = { .start_ticks = 0,    .target_speed = 120, .action = ACTION_NORMAL };
-    s_maps[1].wps[1] = { .start_ticks = 400,  .target_speed = 110, .action = ACTION_FORCE_LEFT };
-    s_maps[1].wps[2] = { .start_ticks = 500,  .target_speed = 110, .action = ACTION_NORMAL };
-    s_maps[1].wps[3] = { .start_ticks = 2324, .target_speed = 110, .action = ACTION_FORCE_RIGHT };
-    s_maps[1].wps[4] = { .start_ticks = 3324, .target_speed = 110, .action = ACTION_NORMAL };
+    // 2. MAP 2 (PHẢI - DIODE: 13 mốc người dùng đã tune thực tế)
+    s_maps[1].count = 13;
+    s_maps[1].wps[0]  = { .start_ticks = 0,     .target_speed = 80,  .action = ACTION_NORMAL };
+    s_maps[1].wps[1]  = { .start_ticks = 420,   .target_speed = 80,  .action = ACTION_FORCE_RIGHT };
+    s_maps[1].wps[2]  = { .start_ticks = 1745,  .target_speed = 110, .action = ACTION_NORMAL };
+    s_maps[1].wps[3]  = { .start_ticks = 5631,  .target_speed = 70,  .action = ACTION_FORCE_LEFT };
+    s_maps[1].wps[4]  = { .start_ticks = 5807,  .target_speed = 80,  .action = ACTION_NORMAL };
+    s_maps[1].wps[5]  = { .start_ticks = 6300,  .target_speed = 110, .action = ACTION_FORCE_RIGHT };
+    s_maps[1].wps[6]  = { .start_ticks = 6471,  .target_speed = 110, .action = ACTION_FORCE_RIGHT };
+    s_maps[1].wps[7]  = { .start_ticks = 6564,  .target_speed = 110, .action = ACTION_FORCE_RIGHT };
+    s_maps[1].wps[8]  = { .start_ticks = 6600,  .target_speed = 110, .action = ACTION_FORCE_RIGHT };
+    s_maps[1].wps[9]  = { .start_ticks = 6707,  .target_speed = 110, .action = ACTION_FORCE_RIGHT };
+    s_maps[1].wps[10] = { .start_ticks = 7000,  .target_speed = 120, .action = ACTION_NORMAL };
+    s_maps[1].wps[11] = { .start_ticks = 7852,  .target_speed = 140, .action = ACTION_NORMAL };
+    s_maps[1].wps[12] = { .start_ticks = 11000, .target_speed = 200, .action = ACTION_NORMAL };
 
-    // 3. MAP 3 (LÀN PHẢI - Đối xứng gương)
-    s_maps[2].count = 5;
-    s_maps[2].wps[0] = { .start_ticks = 0,    .target_speed = 120, .action = ACTION_NORMAL };
-    s_maps[2].wps[1] = { .start_ticks = 400,  .target_speed = 110, .action = ACTION_FORCE_RIGHT };
-    s_maps[2].wps[2] = { .start_ticks = 500,  .target_speed = 110, .action = ACTION_NORMAL };
-    s_maps[2].wps[3] = { .start_ticks = 2324, .target_speed = 110, .action = ACTION_FORCE_LEFT };
-    s_maps[2].wps[4] = { .start_ticks = 3324, .target_speed = 110, .action = ACTION_NORMAL };
+    // 3. MAP 3 (TRÁI - DIODE: 13 mốc đối xứng của Map 2)
+    s_maps[2].count = 13;
+    s_maps[2].wps[0]  = { .start_ticks = 0,     .target_speed = 80,  .action = ACTION_NORMAL };
+    s_maps[2].wps[1]  = { .start_ticks = 420,   .target_speed = 80,  .action = ACTION_FORCE_LEFT };
+    s_maps[2].wps[2]  = { .start_ticks = 1745,  .target_speed = 110, .action = ACTION_NORMAL };
+    s_maps[2].wps[3]  = { .start_ticks = 5631,  .target_speed = 70,  .action = ACTION_FORCE_RIGHT };
+    s_maps[2].wps[4]  = { .start_ticks = 5807,  .target_speed = 80,  .action = ACTION_NORMAL };
+    s_maps[2].wps[5]  = { .start_ticks = 6300,  .target_speed = 110, .action = ACTION_FORCE_LEFT };
+    s_maps[2].wps[6]  = { .start_ticks = 6471,  .target_speed = 110, .action = ACTION_FORCE_LEFT };
+    s_maps[2].wps[7]  = { .start_ticks = 6564,  .target_speed = 110, .action = ACTION_FORCE_LEFT };
+    s_maps[2].wps[8]  = { .start_ticks = 6600,  .target_speed = 110, .action = ACTION_FORCE_LEFT };
+    s_maps[2].wps[9]  = { .start_ticks = 6707,  .target_speed = 110, .action = ACTION_FORCE_LEFT };
+    s_maps[2].wps[10] = { .start_ticks = 7000,  .target_speed = 120, .action = ACTION_NORMAL };
+    s_maps[2].wps[11] = { .start_ticks = 7852,  .target_speed = 140, .action = ACTION_NORMAL };
+    s_maps[2].wps[12] = { .start_ticks = 11000, .target_speed = 200, .action = ACTION_NORMAL };
 }
 
 void map_manager_init(void) {
@@ -46,8 +62,8 @@ void map_manager_init(void) {
         map_load_defaults();
         map_save_to_flash();
     } else {
-        // Nếu Flash chưa có mốc nào ở Map 1 -> Tự động nạp cấu hình 5 mốc này
-        if (s_maps[0].count == 0) {
+        // Nếu Flash chưa có mốc nào hoặc Map 2, Map 3 chưa cập nhật đủ 13 mốc -> Nạp mới và lưu
+        if (s_maps[0].count == 0 || s_maps[1].count < 13 || s_maps[2].count < 13) {
             map_load_defaults();
             map_save_to_flash();
         } else {

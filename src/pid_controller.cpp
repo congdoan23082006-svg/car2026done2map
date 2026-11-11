@@ -426,6 +426,17 @@ void pid_line_follow_step(void) {
         // =====================================================================
         case LINE_CASE_NORMAL_PID: {
             float error = position; // -75.0 đến +75.0 (0.0 là chuẩn giữa tâm)
+
+            // ĐỘ NGHIÊNG ĐÓN ĐẦU MƯỢT MÀ (Smooth Apex Leaning Bias):
+            // Khi sa bàn đang có lệnh Ép Trái / Ép Phải (ở trước và trong ngã 3):
+            // Chủ động nghiêng góc lái đón đầu để xe ôm gọn vào nhánh rẽ êm ru,
+            // triệt tiêu hoàn toàn quán tính của nhánh thẳng cũ mà không giật cục.
+            if (s_sector_action == 1) {
+                error -= 22.0f; // Nghiêng êm ái sang bên TRÁI
+            } else if (s_sector_action == 2) {
+                error += 22.0f; // Nghiêng êm ái sang bên PHẢI
+            }
+
             float absErr = fabsf(error);
 
             // 1. Khâu P phi tuyến mềm mại (Non-linear P):
