@@ -481,9 +481,9 @@
         </div>
 
         <div class="tab-bar">
-            <button class="tab-btn active" id="tab0" onclick="switchMap(0)">MAP 1</button>
-            <button class="tab-btn" id="tab1" onclick="switchMap(1)">MAP 2</button>
-            <button class="tab-btn" id="tab2" onclick="switchMap(2)">MAP 3</button>
+            <button class="tab-btn active" id="tab0" onclick="switchMap(0)">MAP 1 (HÌNH THOI)</button>
+            <button class="tab-btn" id="tab1" onclick="switchMap(1)">MAP 2 (LÀN TRÁI)</button>
+            <button class="tab-btn" id="tab2" onclick="switchMap(2)">MAP 3 (LÀN PHẢI)</button>
         </div>
 
         <div style="overflow-x: auto;">
@@ -609,11 +609,33 @@
         }
 
         // BẮT ĐẦU VỚI LOCAL STORAGE - TỰ LƯU VĨNH VIỄN TRÊN ĐIỆN THOẠI
-        let userMaps = [[], [], []];
+        const defaultMap1 = [
+            { ticks: 0,    speed: 120, action: 0 },
+            { ticks: 400,  speed: 110, action: 1 },
+            { ticks: 500,  speed: 110, action: 0 },
+            { ticks: 2324, speed: 110, action: 2 },
+            { ticks: 3324, speed: 110, action: 0 }
+        ];
+        const defaultMap2 = JSON.parse(JSON.stringify(defaultMap1));
+        const defaultMap3 = [
+            { ticks: 0,    speed: 120, action: 0 },
+            { ticks: 400,  speed: 110, action: 2 },
+            { ticks: 500,  speed: 110, action: 0 },
+            { ticks: 2324, speed: 110, action: 1 },
+            { ticks: 3324, speed: 110, action: 0 }
+        ];
+
+        let userMaps = [defaultMap1, defaultMap2, defaultMap3];
         try {
             const saved = localStorage.getItem('racecar_user_maps_v2');
             if (saved) {
-                userMaps = JSON.parse(saved);
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed) && parsed.length >= 3) {
+                    if (!parsed[0] || parsed[0].length === 0) parsed[0] = defaultMap1;
+                    if (!parsed[1] || parsed[1].length === 0) parsed[1] = defaultMap2;
+                    if (!parsed[2] || parsed[2].length === 0) parsed[2] = defaultMap3;
+                    userMaps = parsed;
+                }
             }
         } catch (e) {
             console.error('Lỗi đọc localStorage:', e);
@@ -673,6 +695,11 @@
                 document.getElementById('btnConnect').classList.add('connected');
                 document.getElementById('bleText').innerText = '✅ ĐÃ KẾT NỐI';
                 log('✅ Kết nối thành công!');
+
+                // Tự động đồng bộ mốc sa bàn từ Flash ESP32 lên Web
+                setTimeout(() => {
+                    sendCmd(`CMD:GET_MAP:${activeMap}`);
+                }, 600);
             } catch (e) {
                 log('❌ Lỗi BLE: ' + e);
             }
@@ -762,6 +789,43 @@
             } else if (raw === 'LOG:AUTO_START') {
                 if (!isTimerRunning) startTimer();
                 log('🚀 Xe bắt đầu chạy!');
+            } else if (raw.startsWith('MAP_INFO:')) {
+                // MAP_INFO:map_idx,count,is_right
+                const parts = raw.substring(9).split(',');
+                if (parts.length >= 2) {
+                    const m = parseInt(parts[0]);
+                    const count = parseInt(parts[1]);
+                    const right = parts.length >= 3 ? parseInt(parts[2]) : 0;
+                    if (m >= 0 && m < 3) {
+                        userMaps[m] = [];
+                        if (count === 0) {
+                            renderWpTable();
+                        }
+                    }
+                    if (right === 1) {
+                        const rBtn = document.getElementById('btnLaneRight');
+                        const lBtn = document.getElementById('btnLaneLeft');
+                        if (rBtn) rBtn.classList.add('active');
+                        if (lBtn) lBtn.classList.remove('active');
+                    }
+                }
+            } else if (raw.startsWith('WP:')) {
+                // WP:map_idx,idx,ticks,speed,action
+                const p = raw.substring(3).split(',');
+                if (p.length >= 5) {
+                    const m = parseInt(p[0]);
+                    const idx = parseInt(p[1]);
+                    const ticks = parseInt(p[2]);
+                    const spd = parseInt(p[3]);
+                    const act = parseInt(p[4]);
+                    if (m >= 0 && m < 3) {
+                        // Thêm vào danh sách và cập nhật UI
+                        userMaps[m].push({ ticks: ticks, speed: spd, action: act });
+                        userMaps[m].sort((a, b) => a.ticks - b.ticks);
+                        saveLocalMaps();
+                        renderWpTable();
+                    }
+                }
             } else if (raw.startsWith('ACK:')) {
                 log('📥 ' + raw);
                 if (raw === 'ACK:CALIB_DONE') {
@@ -890,6 +954,9 @@
             document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', i === idx));
             renderWpTable();
             sendCmd(`CMD:MAP:${idx}`);
+            if (idx === 1) sendCmd('CMD:LANE:0');
+            if (idx === 2) sendCmd('CMD:LANE:1');
+            sendCmd(`CMD:GET_MAP:${idx}`);
         }
 
         function renderWpTable() {
@@ -921,17 +988,38 @@
 
         function captureCurrentTicks() {
             const ticks = (lastLiveTicks !== undefined && lastLiveTicks !== null) ? lastLiveTicks : 0;
-            userMaps[activeMap].push({ ticks: ticks, speed: 120, action: 0 });
-            userMaps[activeMap].sort((a, b) => a.ticks - b.ticks);
+            const spd = parseInt(document.getElementById('cfgSpeed').value) || 120;
+            const list = userMaps[activeMap];
+
+            // 1. Tự động thêm Mốc 0 tại vạch xuất phát nếu chưa có
+            if (list.length === 0 && ticks > 0) {
+                list.push({ ticks: 0, speed: spd, action: 0 }); // Mốc 0: Xuất phát PID Chuẩn
+                log(`📍 Tự tạo Mốc 0: 0 xung (PID Chuẩn tốc độ ${spd})`);
+            }
+
+            // 2. Tự động nhận diện hành vi thông minh:
+            // Nếu mốc liền trước là Ép Trái (1) hoặc Ép Phải (2) -> Mốc này tự động là PID Chuẩn (0)
+            let defaultAct = 1; // Mặc định là Ép Trái (để vào nhánh sóng)
+            if (list.length > 0) {
+                const prevAct = list[list.length - 1].action;
+                if (prevAct === 1 || prevAct === 2) {
+                    defaultAct = 0; // Trả về PID chuẩn
+                }
+            }
+
+            list.push({ ticks: ticks, speed: spd, action: defaultAct });
+            list.sort((a, b) => a.ticks - b.ticks);
             saveLocalMaps();
             renderWpTable();
-            log(`📍 Đã chụp mốc bắt đầu: ${ticks} xung`);
+            const actLabel = defaultAct === 1 ? 'Ép Trái (Nhánh sóng)' : (defaultAct === 0 ? 'PID Chuẩn (Trả về)' : 'Mốc mới');
+            log(`📍 Đã chụp mốc: ${ticks} xung -> [${actLabel}]`);
         }
 
         function addManualRow() {
             const list = userMaps[activeMap];
-            const nextTicks = list.length > 0 ? list[list.length - 1].ticks + 1000 : 1000;
-            list.push({ ticks: nextTicks, speed: 120, action: 0 });
+            const spd = parseInt(document.getElementById('cfgSpeed').value) || 120;
+            const nextTicks = list.length > 0 ? list[list.length - 1].ticks + 1000 : 0;
+            list.push({ ticks: nextTicks, speed: spd, action: 0 });
             saveLocalMaps();
             renderWpTable();
         }
@@ -947,12 +1035,19 @@
             renderWpTable();
         }
 
+        function getMapTitle(idx) {
+            if (idx === 0) return 'Map 1 (Hình Thoi)';
+            if (idx === 1) return 'Map 2 (Làn Trái)';
+            if (idx === 2) return 'Map 3 (Làn Phải)';
+            return 'Map ' + (idx + 1);
+        }
+
         function clearAllWps() {
             userMaps[activeMap] = [];
             saveLocalMaps();
             renderWpTable();
             sendCmd(`CMD:WP_CLEAR:${activeMap}`);
-            log('🗑️ Đã xóa sạch mốc Map ' + (activeMap + 1));
+            log('🗑️ Đã xóa sạch mốc ' + getMapTitle(activeMap));
         }
 
         async function saveMapToCar() {
@@ -960,16 +1055,18 @@
             saveLocalMaps();
             renderWpTable();
             const list = userMaps[activeMap];
-            log(`Đang lưu ${list.length} mốc Map ${activeMap + 1} vào xe...`);
+            log(`Đang lưu ${list.length} mốc ${getMapTitle(activeMap)} vào xe...`);
             await sendCmd(`CMD:WP_CLEAR:${activeMap}`);
 
             for (let i = 0; i < list.length; i++) {
                 const w = list[i];
-                await new Promise(r => setTimeout(r, 40));
+                await new Promise(r => setTimeout(r, 45));
                 await sendCmd(`CMD:WP_SET:${activeMap}:${i}:${w.ticks}:${w.speed}:${w.action}`);
             }
+            await new Promise(r => setTimeout(r, 50));
             await sendCmd('CMD:SAVE');
-            log(`✅ Đã lưu vĩnh viễn Map ${activeMap + 1} vào Flash NVS!`);
+            log(`✅ Đã lưu vĩnh viễn ${getMapTitle(activeMap)} (${list.length} mốc) vào Flash NVS!`);
+            alert(`✅ Đã nạp thành công ${list.length} mốc [${getMapTitle(activeMap)}] vào xe! Giờ bạn có thể đặt xe lên vạch và bấm LƯỢT 2.`);
         }
 
         renderWpTable();

@@ -1,5 +1,6 @@
 #include "map_manager.h"
 #include "ble_handler.h"
+#include "pid_controller.h"
 #include <Arduino.h>
 #include <Preferences.h>
 
@@ -10,14 +11,34 @@ static bool s_is_right_lane = false;
 
 void map_load_defaults(void) {
     // -------------------------------------------------------------
-    // KHỞI TẠO BẢNG MỐC TRỐNG BAN ĐẦU (0 MỐC ẢO)
-    // Xe sẽ chạy 100% theo "Tốc độ nền" người dùng cài đặt trên Web!
-    // Chỉ khi nào người dùng bấm "Thêm mốc" và "Lưu vào xe" trên Web
-    // thì xe mới áp dụng các mốc sa bàn tùy biến.
+    // KHỞI TẠO MẶC ĐỊNH CHO 3 BẢN ĐỒ
+    // MAP 1: HÌNH THOI (5 mốc cấu hình thực tế)
+    // MAP 2: LÀN TRÁI  (Mặc định ép trái vào nhánh sóng)
+    // MAP 3: LÀN PHẢI  (Đối xứng: ép phải vào nhánh sóng)
     // -------------------------------------------------------------
-    for (uint8_t m = 0; m < NUM_MAPS; m++) {
-        s_maps[m].count = 0;
-    }
+    // 1. MAP 1 (HÌNH THOI)
+    s_maps[0].count = 5;
+    s_maps[0].wps[0] = { .start_ticks = 0,    .target_speed = 120, .action = ACTION_NORMAL };
+    s_maps[0].wps[1] = { .start_ticks = 400,  .target_speed = 110, .action = ACTION_FORCE_LEFT };
+    s_maps[0].wps[2] = { .start_ticks = 500,  .target_speed = 110, .action = ACTION_NORMAL };
+    s_maps[0].wps[3] = { .start_ticks = 2324, .target_speed = 110, .action = ACTION_FORCE_RIGHT };
+    s_maps[0].wps[4] = { .start_ticks = 3324, .target_speed = 110, .action = ACTION_NORMAL };
+
+    // 2. MAP 2 (LÀN TRÁI)
+    s_maps[1].count = 5;
+    s_maps[1].wps[0] = { .start_ticks = 0,    .target_speed = 120, .action = ACTION_NORMAL };
+    s_maps[1].wps[1] = { .start_ticks = 400,  .target_speed = 110, .action = ACTION_FORCE_LEFT };
+    s_maps[1].wps[2] = { .start_ticks = 500,  .target_speed = 110, .action = ACTION_NORMAL };
+    s_maps[1].wps[3] = { .start_ticks = 2324, .target_speed = 110, .action = ACTION_FORCE_RIGHT };
+    s_maps[1].wps[4] = { .start_ticks = 3324, .target_speed = 110, .action = ACTION_NORMAL };
+
+    // 3. MAP 3 (LÀN PHẢI - Đối xứng gương)
+    s_maps[2].count = 5;
+    s_maps[2].wps[0] = { .start_ticks = 0,    .target_speed = 120, .action = ACTION_NORMAL };
+    s_maps[2].wps[1] = { .start_ticks = 400,  .target_speed = 110, .action = ACTION_FORCE_RIGHT };
+    s_maps[2].wps[2] = { .start_ticks = 500,  .target_speed = 110, .action = ACTION_NORMAL };
+    s_maps[2].wps[3] = { .start_ticks = 2324, .target_speed = 110, .action = ACTION_FORCE_LEFT };
+    s_maps[2].wps[4] = { .start_ticks = 3324, .target_speed = 110, .action = ACTION_NORMAL };
 }
 
 void map_manager_init(void) {
@@ -25,8 +46,14 @@ void map_manager_init(void) {
         map_load_defaults();
         map_save_to_flash();
     } else {
-        for (uint8_t m = 0; m < NUM_MAPS; m++) {
-            map_sort_waypoints(m);
+        // Nếu Flash chưa có mốc nào ở Map 1 -> Tự động nạp cấu hình 5 mốc này
+        if (s_maps[0].count == 0) {
+            map_load_defaults();
+            map_save_to_flash();
+        } else {
+            for (uint8_t m = 0; m < NUM_MAPS; m++) {
+                map_sort_waypoints(m);
+            }
         }
     }
 }
@@ -128,18 +155,18 @@ const Waypoint_t* map_get_waypoint(uint8_t map_idx, uint8_t wp_idx) {
 void map_get_current_action(uint32_t current_ticks, int16_t *out_speed, uint8_t *out_action, uint8_t *out_wp_idx) {
     MapProfile_t *prof = &s_maps[s_selected_map];
 
-    // 1. Nếu không có mốc nào: Chạy PID thuần với tốc độ nền do Web cài đặt
+    // 1. Nếu không có mốc nào: Chạy PID thuần với tốc độ đua cài đặt
     if (prof->count == 0) {
-        *out_speed = car_get_scan_speed();
+        *out_speed = pid_get_base_speed();
         *out_action = ACTION_NORMAL;
         *out_wp_idx = 0;
         return;
     }
 
     // 2. Nếu xe chưa chạy tới Mốc Bắt Đầu đầu tiên (current_ticks < mốc 0):
-    // Xe xuất phát chạy PID bình thường theo tốc độ nền
+    // Xe xuất phát chạy PID bình thường theo tốc độ mốc đầu (hoặc base speed)
     if (current_ticks < prof->wps[0].start_ticks) {
-        *out_speed = car_get_scan_speed();
+        *out_speed = prof->wps[0].target_speed > 0 ? prof->wps[0].target_speed : pid_get_base_speed();
         *out_action = ACTION_NORMAL;
         *out_wp_idx = 0;
         return;
@@ -164,7 +191,7 @@ void map_get_current_action(uint32_t current_ticks, int16_t *out_speed, uint8_t 
         }
     }
 
-    *out_speed = car_get_scan_speed();
+    *out_speed = pid_get_base_speed();
     *out_action = ACTION_NORMAL;
     *out_wp_idx = 0;
 }
